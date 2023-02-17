@@ -1,0 +1,11 @@
+{
+  "name": "jb69",
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "node-ble": "^1.9.0"
+  },
+  "devDependencies": {
+    "@moser-inc/eslint-config": "^1.7.0"
+  }
+}
