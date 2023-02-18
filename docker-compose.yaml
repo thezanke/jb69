@@ -1,0 +1,19 @@
+version: '3'
+services:
+  influx:
+    image: influxdb:2.6
+    ports:
+      - 8086:8086
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    environment:
+      # - DOCKER_INFLUXDB_INIT_MODE=setup
+      - INFLUXDB_ADMIN_USER_PASSWORD=admin
+      - INFLUXDB_USER=jb69
+      - INFLUXDB_USER_PASSWORD=jb69jb69jb69jb69jb69jb69
+      - DOCKER_INFLUXDB_INIT_ORG=$INFLUXDB_ORG
+      - INFLUXDB_DB=$INFLUXDB_BUCKET
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=$INFLUXDB_TOKEN
+
+volumes:
+  influxdb_data:

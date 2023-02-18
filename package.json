@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "type": "module",
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.33.1",
+    "dotenv": "^16.0.3",
     "exponential-backoff": "^3.1.0",
     "node-ble": "^1.9.0"
   },
