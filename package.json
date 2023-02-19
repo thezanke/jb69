@@ -6,7 +6,8 @@
     "@influxdata/influxdb-client": "^1.33.1",
     "dotenv": "^16.0.3",
     "exponential-backoff": "^3.1.0",
-    "node-ble": "^1.9.0"
+    "node-ble": "^1.9.0",
+    "use-immer": "^0.8.1"
   },
   "devDependencies": {
     "@moser-inc/eslint-config": "^1.7.0"
