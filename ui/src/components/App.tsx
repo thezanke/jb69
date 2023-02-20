@@ -1,3 +1,4 @@
+import { chunk } from 'lodash';
 import { Fragment, useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useImmer } from 'use-immer';
@@ -36,21 +37,30 @@ const StyleContainer = styled.div`
   }
 `;
 
+const Hex = ({ value }: { value?: DataView }) => {
+  if (!value) return null;
+
+  const serialized = serializeBuffer(value.buffer, DataSerializationFormat.hex);
+  const formatted = chunk(serialized, 2)
+    .map((s) => s.join(''))
+    .join(' ')
+    .toUpperCase();
+
+  return <>{formatted}</>;
+};
+
 export const App = () => {
   const bluetooth = useBluetooth();
   const isInitialized = useRef(false);
-  const [payloads, setPayloads] = useImmer<Map<number, string>>(new Map());
+  const [payloads, setPayloads] = useImmer<Map<number, DataView>>(new Map());
 
   const notificationHandler = useCallback<NotificationEventHandler>(
     (ev) => {
-      const buffer = ev.target.value?.buffer;
-      if (!buffer) return;
+      const value = ev.target.value;
+      if (!value) return;
       const timestamp = Number(new Date());
       setPayloads((draft) => {
-        draft.set(
-          timestamp,
-          serializeBuffer(buffer, DataSerializationFormat.binary),
-        );
+        draft.set(timestamp, value);
       });
     },
     [setPayloads],
@@ -78,8 +88,14 @@ export const App = () => {
         <pre>
           {Array.from(payloads.keys())
             .sort((a, b) => b - a)
+            .slice(0, 10)
             .map((ts) => (
-              <Fragment key={ts}>{`${ts}: ${payloads.get(ts)}\n`}</Fragment>
+              <Fragment key={ts}>
+                <>{ts}: </>
+                {/* <>{payloads.get(ts)}</> */}
+                <Hex value={payloads.get(ts)} />
+                {'\n'}
+              </Fragment>
             ))}
         </pre>
       </fieldset>
