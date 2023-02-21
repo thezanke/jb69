@@ -9,9 +9,6 @@ export type NotificationEventHandler = (ev: NotificationEvent) => void;
 
 const CHAR_NOTIFY_EVENT = 'characteristicvaluechanged';
 
-const SERVICE_UUID = '70d51000-2c7f-4e75-ae8a-d758951ce4e0';
-const CHAR_UUID = '70d51002-2c7f-4e75-ae8a-d758951ce4e0';
-
 export class BluetoothService {
   bt: Bluetooth;
   device?: BluetoothDevice;
@@ -25,17 +22,28 @@ export class BluetoothService {
   }
 
   get isConnected() {
-    return this.#gattServer?.connected;
+    return this.#gattServer?.connected ?? false;
   }
 
-  async connect() {
+  async connect(
+    serviceUuid: string,
+    charUuid: string,
+    filters?: BluetoothLEScanFilter[],
+  ) {
     const isBluetoothAvailable = await this.bt.getAvailability();
     if (!isBluetoothAvailable) throw new Error('bluetooth is not available');
 
-    const device = await this.bt.requestDevice({
-      filters: [{ name: 'ACI-E' }],
-      optionalServices: [SERVICE_UUID],
-    });
+    const bluetoothRequest: RequestDeviceOptions = filters
+      ? {
+          filters,
+          optionalServices: [serviceUuid],
+        }
+      : {
+          acceptAllDevices: true,
+          optionalServices: [serviceUuid],
+        };
+
+    const device = await this.bt.requestDevice(bluetoothRequest);
 
     this.device = device;
 
@@ -58,27 +66,27 @@ export class BluetoothService {
       },
     );
 
-    const service = await this.#gattServer?.getPrimaryService(SERVICE_UUID);
+    const service = await this.#gattServer?.getPrimaryService(serviceUuid);
     this.#service = service;
 
-    const characteristic = await this.#service?.getCharacteristic(CHAR_UUID);
+    const characteristic = await this.#service?.getCharacteristic(charUuid);
     if (!characteristic) throw new Error('characterstic undefined');
 
     characteristic.addEventListener(
       CHAR_NOTIFY_EVENT,
-      this.#handleNotification,
+      this.#handleNotificationEvent,
     );
 
     this.#characteristic = characteristic;
 
-    await this.enableNotifications();
+    await this.startNotifications();
   }
 
   async disconnect() {
     if (this.#characteristic) {
       this.#characteristic.removeEventListener(
         CHAR_NOTIFY_EVENT,
-        this.#handleNotification,
+        this.#handleNotificationEvent,
       );
       this.#characteristic = undefined;
     }
@@ -89,18 +97,13 @@ export class BluetoothService {
       this.#gattServer.disconnect();
       this.#gattServer = undefined;
     }
-
-    if (this.device) {
-      await this.device.forget();
-      this.device = undefined;
-    }
   }
 
-  async enableNotifications() {
+  async startNotifications() {
     await this.#characteristic?.startNotifications();
   }
 
-  async disableNotifications() {
+  async stopNotifications() {
     await this.#characteristic?.stopNotifications();
   }
 
@@ -112,7 +115,7 @@ export class BluetoothService {
     this.#notificationEventHandlers.delete(handler);
   };
 
-  #handleNotification = (ev: Event) => {
+  #handleNotificationEvent = (ev: Event) => {
     this.#notificationEventHandlers.forEach(async (handler) => {
       try {
         await handler(ev as NotificationEvent);
@@ -124,8 +127,8 @@ export class BluetoothService {
   };
 }
 
-const service = new BluetoothService();
+export const bluetoothService = new BluetoothService();
 
-export const useBluetooth = () => {
-  return { service };
+export const useBluetoothService = () => {
+  return { service: bluetoothService };
 };

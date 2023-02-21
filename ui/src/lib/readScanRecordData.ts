@@ -1,4 +1,4 @@
-import * as byteUtils from './byteUtils';
+import * as dataUtils from './dataUtils';
 
 const dec = new TextDecoder('utf-8');
 
@@ -11,13 +11,13 @@ const readScanRecordData = (dv: DataView) => {
     typeName: dec.decode(
       new Uint8Array(Array.from({ length: 5 }, (_v, i) => dv.getUint8(i + 6))),
     ),
-    canBeAdded: byteUtils.getBit(b, 0),
-    isCelcius: !byteUtils.getBit(b, 1),
-    fanState: byteUtils.getBits(b, 2, 2),
-    tmpState: byteUtils.getBits(b, 4, 2),
-    humState: byteUtils.getBits(b, 6, 2),
-    temp: byteUtils.parseShort(dv, 14) / 100,
-    humid: byteUtils.parseShort(dv, 16) / 100,
+    canBeAdded: dataUtils.getBit(b, 0),
+    isCelcius: !dataUtils.getBit(b, 1),
+    fanState: dataUtils.getBits(b, 2, 2),
+    tmpState: dataUtils.getBits(b, 4, 2),
+    humState: dataUtils.getBits(b, 6, 2),
+    temp: dataUtils.parseShort(dv, 14) / 100,
+    humid: dataUtils.parseShort(dv, 16) / 100,
     // fan:
   };
 };
