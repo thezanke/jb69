@@ -3,7 +3,7 @@ import { FunctionComponent, useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useImmer } from 'use-immer';
 import { createDataViewFromHexString } from '../lib/createDataViewFromHexString';
-import { readNotificationData } from '../lib/readNotificationData';
+import { readNotificationsData } from '../lib/readNotificationsData';
 import { readScanRecordData } from '../lib/readScanRecordData';
 import {
   DataSerializationFormat,
@@ -28,7 +28,7 @@ const serializedDataFormatters: Partial<
 
 window.readScanRecordData = readScanRecordData;
 window.createDataViewFromHexString = createDataViewFromHexString;
-window.readNotificationData = readNotificationData;
+window.readNotificationData = readNotificationsData;
 
 const SerializedData = ({
   value,
@@ -48,7 +48,7 @@ const SerializedData = ({
 };
 
 const DataPointRow: FunctionComponent<{ value: DataPoint }> = ({ value }) => {
-  const notificaiton = readNotificationData(value.view);
+  const notificaiton = readNotificationsData(value.view);
   return (
     <tr>
       <td>{value.timestamp.toLocaleTimeString()}</td>

@@ -1,29 +1,31 @@
-import { Notification } from '../lib/Notification';
+import { Notification } from './Notification';
 import * as byteUtils from './byteUtils';
 import { DECREASE_TREND } from './deviceInfo';
 
-const dec = new TextDecoder('utf-8');
-
-export const readNotificationData = (data: DataView) => {
+export const readNotificationsData = (data: DataView) => {
   let i: number;
 
   const trimmedData = new DataView(
     new Uint8Array(data.buffer).slice(10, 32).buffer,
   );
 
-  const arrayList = [];
+  const notifications: Notification[] = [];
   let curr = 0;
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
     if (curr >= data.byteLength) break;
+
     const notification: Partial<Notification> = {};
-    if (trimmedData.getInt8(curr) === 0x46) {
+
+    if (trimmedData.getInt8(curr) === 54) {
       if (trimmedData.getInt8(curr + 1) !== 0) {
         i = curr + 35;
+
         if (trimmedData.byteLength < i) {
           throw new Error('parse notification err');
         }
+
         notification.type = 1;
 
         let byte = trimmedData.getInt8(curr + 2);
@@ -119,7 +121,7 @@ export const readNotificationData = (data: DataView) => {
         }
 
         curr = i;
-        arrayList.push(notification);
+        notifications.push(notification as Notification);
       } else {
         curr += 2;
       }
@@ -127,6 +129,7 @@ export const readNotificationData = (data: DataView) => {
       curr += 2;
     } else {
       i = curr + 10;
+
       if (trimmedData.byteLength < i) break;
 
       notification.type = 2;
@@ -140,6 +143,7 @@ export const readNotificationData = (data: DataView) => {
 
       byte = trimmedData.getInt8(curr + 3);
       notification.model = byte;
+
       if (!byteUtils.getBit(byte, 2)) {
         notification.tmpHum = trimmedData.getInt8(curr + 4);
         notification.hTmpF = trimmedData.getInt8(curr + 5);
@@ -157,10 +161,13 @@ export const readNotificationData = (data: DataView) => {
       } else if (!byteUtils.getBit(notification.model, 5)) {
         notification.port = trimmedData.getInt8(curr + 5);
       }
+
       notification.beeps = trimmedData.getInt8(curr + 9);
+
+      notifications.push(notification as Notification);
+
       curr = i;
-      arrayList.push(notification);
     }
   }
-  return arrayList;
+  return notifications;
 };

@@ -1,6 +1,6 @@
 import * as byteUtils from './byteUtils';
 
-const dec = new TextDecoder('ascii');
+const dec = new TextDecoder('utf-8');
 
 const readScanRecordData = (dv: DataView) => {
   const b = dv.getUint8(13);
@@ -12,7 +12,7 @@ const readScanRecordData = (dv: DataView) => {
       new Uint8Array(Array.from({ length: 5 }, (_v, i) => dv.getUint8(i + 6))),
     ),
     canBeAdded: byteUtils.getBit(b, 0),
-    isDegree: !byteUtils.getBit(b, 1),
+    isCelcius: !byteUtils.getBit(b, 1),
     fanState: byteUtils.getBits(b, 2, 2),
     tmpState: byteUtils.getBits(b, 4, 2),
     humState: byteUtils.getBits(b, 6, 2),
