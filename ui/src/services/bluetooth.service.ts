@@ -1,3 +1,5 @@
+import { backOff } from 'exponential-backoff';
+
 export type NotificationEvent = Event & {
   target: BluetoothRemoteGATTCharacteristic;
   currentTarget: BluetoothRemoteGATTCharacteristic;
@@ -30,22 +32,38 @@ export class BluetoothService {
     const isBluetoothAvailable = await this.bt.getAvailability();
     if (!isBluetoothAvailable) throw new Error('bluetooth is not available');
 
-    this.device = await this.bt.requestDevice({
+    const device = await this.bt.requestDevice({
       filters: [{ name: 'ACI-E' }],
       optionalServices: [SERVICE_UUID],
     });
 
-    const gattServer = await this.device.gatt;
-    if (!gattServer) throw new Error('gatt server missing');
-    while (!gattServer.connected) {
-      await gattServer.connect();
-    }
-    this.#gattServer = gattServer;
+    this.device = device;
 
-    const service = await gattServer.getPrimaryService(SERVICE_UUID);
+    await backOff(
+      async () => {
+        const gattServer = await device.gatt;
+        if (!gattServer) throw new Error('gatt server missing');
+        await gattServer.connect();
+        if (!gattServer.connected) throw 'failed to connect';
+        this.#gattServer = gattServer;
+      },
+      {
+        numOfAttempts: 5,
+        retry(e, attemptNumber) {
+          console.warn('connect error:');
+          console.trace(e);
+          console.info(`retry #${attemptNumber}...`);
+          return true;
+        },
+      },
+    );
+
+    const service = await this.#gattServer?.getPrimaryService(SERVICE_UUID);
     this.#service = service;
 
-    const characteristic = await service.getCharacteristic(CHAR_UUID);
+    const characteristic = await this.#service?.getCharacteristic(CHAR_UUID);
+    if (!characteristic) throw new Error('characterstic undefined');
+
     characteristic.addEventListener(
       CHAR_NOTIFY_EVENT,
       this.#handleNotification,

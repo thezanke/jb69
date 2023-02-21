@@ -2,15 +2,17 @@ import { chunk } from 'lodash';
 import { FunctionComponent, useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useImmer } from 'use-immer';
+import { createDataViewFromHexString } from '../lib/createDataViewFromHexString';
+import { readNotificationData } from '../lib/readNotificationData';
+import { readScanRecordData } from '../lib/readScanRecordData';
+import {
+  DataSerializationFormat,
+  serializeBuffer,
+} from '../lib/serializeBuffer';
 import {
   NotificationEventHandler,
   useBluetooth,
 } from '../services/bluetooth.service';
-import { parseScanRecordData } from '../utils/parseScanRecordData';
-import {
-  DataSerializationFormat,
-  serializeBuffer,
-} from '../utils/serializeBuffer';
 
 import './index.css';
 
@@ -24,7 +26,9 @@ const serializedDataFormatters: Partial<
       .toUpperCase(),
 };
 
-console.log(parseScanRecordData);
+window.readScanRecordData = readScanRecordData;
+window.createDataViewFromHexString = createDataViewFromHexString;
+window.readNotificationData = readNotificationData;
 
 const SerializedData = ({
   value,
@@ -44,6 +48,7 @@ const SerializedData = ({
 };
 
 const DataPointRow: FunctionComponent<{ value: DataPoint }> = ({ value }) => {
+  const notificaiton = readNotificationData(value.view);
   return (
     <tr>
       <td>{value.timestamp.toLocaleTimeString()}</td>
@@ -67,6 +72,9 @@ const DataPointRow: FunctionComponent<{ value: DataPoint }> = ({ value }) => {
           value={value.view}
           format={DataSerializationFormat.binary}
         />
+        <div style={{ display: 'flex', flexDirection: 'row' }}>
+          <pre>{JSON.stringify(notificaiton, null, 2)}</pre>
+        </div>
       </td>
     </tr>
   );
