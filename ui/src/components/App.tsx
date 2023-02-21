@@ -1,17 +1,152 @@
 import { chunk } from 'lodash';
-import { Fragment, useCallback, useEffect, useRef } from 'react';
+import { FunctionComponent, useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useImmer } from 'use-immer';
 import {
   NotificationEventHandler,
   useBluetooth,
 } from '../services/bluetooth.service';
+import { parseScanRecordData } from '../utils/parseScanRecordData';
 import {
   DataSerializationFormat,
   serializeBuffer,
 } from '../utils/serializeBuffer';
 
 import './index.css';
+
+const serializedDataFormatters: Partial<
+  Record<DataSerializationFormat, (str: string) => string>
+> = {
+  [DataSerializationFormat.hex]: (serialized: string) =>
+    chunk(serialized, 2)
+      .map((s) => s.join(''))
+      .join(' ')
+      .toUpperCase(),
+};
+
+console.log(parseScanRecordData);
+
+const SerializedData = ({
+  value,
+  format,
+}: {
+  value: DataView;
+  format: DataSerializationFormat;
+}) => {
+  if (!value) return null;
+
+  let serialized = serializeBuffer(value.buffer, format);
+
+  const formatter = serializedDataFormatters[format];
+  if (formatter) serialized = formatter(serialized);
+
+  return <pre>{serialized}</pre>;
+};
+
+const DataPointRow: FunctionComponent<{ value: DataPoint }> = ({ value }) => {
+  return (
+    <tr>
+      <td>{value.timestamp.toLocaleTimeString()}</td>
+      {/* <td>
+        <button onClick={() => (window.dataPoint = value)}>Set</button>
+      </td> */}
+      <td>
+        <SerializedData
+          value={value.view}
+          format={DataSerializationFormat.int8}
+        />
+        <SerializedData
+          value={value.view}
+          format={DataSerializationFormat.uint8}
+        />
+        <SerializedData
+          value={value.view}
+          format={DataSerializationFormat.hex}
+        />
+        <SerializedData
+          value={value.view}
+          format={DataSerializationFormat.binary}
+        />
+      </td>
+    </tr>
+  );
+};
+
+interface DataPoint {
+  timestamp: Date;
+  view: DataView;
+}
+
+const DataPointTable: FunctionComponent<{ dataPoints: DataPoint[] }> = ({
+  dataPoints,
+}) => {
+  return (
+    <table className="data-point-table">
+      <thead>
+        <tr>
+          <td colSpan={2}>Data Points</td>
+        </tr>
+      </thead>
+      <tbody>
+        {dataPoints.map((point, i) => (
+          <DataPointRow key={i} value={point} />
+        ))}
+      </tbody>
+    </table>
+  );
+};
+
+export const App = () => {
+  const bluetooth = useBluetooth();
+  const isInitialized = useRef(false);
+  const [dataPoints, updateDataPoints] = useImmer<DataPoint[]>([]);
+
+  const notificationHandler = useRef<NotificationEventHandler | null>(null);
+
+  useEffect(() => {
+    if (!isInitialized.current) {
+      notificationHandler.current = (ev) => {
+        const view = ev.target.value;
+        if (!view) return;
+        const timestamp = new Date();
+        updateDataPoints((draft) => {
+          draft.unshift({ timestamp, view });
+        });
+      };
+
+      bluetooth.service.addNotificationHandler(notificationHandler.current);
+      isInitialized.current = true;
+    }
+
+    return () => {
+      if (notificationHandler.current) {
+        bluetooth.service.removeNotificationHandler(
+          notificationHandler.current,
+        );
+
+        notificationHandler.current = null;
+      }
+
+      isInitialized.current = false;
+    };
+  }, [bluetooth, updateDataPoints]);
+
+  const connectToDevice = useCallback(
+    async () => await bluetooth.service.connect(),
+    [bluetooth],
+  );
+
+  return (
+    <StyleContainer>
+      <div className="actionBar">
+        <button onClick={connectToDevice}>Connect</button>
+      </div>
+      <div className="contents">
+        <DataPointTable dataPoints={dataPoints} />
+      </div>
+    </StyleContainer>
+  );
+};
 
 const StyleContainer = styled.div`
   padding: 1em;
@@ -35,70 +170,24 @@ const StyleContainer = styled.div`
       background-color: rgba(255, 255, 255, 0.5);
     }
   }
-`;
 
-const Hex = ({ value }: { value?: DataView }) => {
-  if (!value) return null;
+  .actionBar {
+    padding: 0 0 1em;
+  }
 
-  const serialized = serializeBuffer(value.buffer, DataSerializationFormat.hex);
-  const formatted = chunk(serialized, 2)
-    .map((s) => s.join(''))
-    .join(' ')
-    .toUpperCase();
+  .contents {
+  }
 
-  return <>{formatted}</>;
-};
-
-export const App = () => {
-  const bluetooth = useBluetooth();
-  const isInitialized = useRef(false);
-  const [payloads, setPayloads] = useImmer<Map<number, DataView>>(new Map());
-
-  const notificationHandler = useCallback<NotificationEventHandler>(
-    (ev) => {
-      const value = ev.target.value;
-      if (!value) return;
-      const timestamp = Number(new Date());
-      setPayloads((draft) => {
-        draft.set(timestamp, value);
-      });
-    },
-    [setPayloads],
-  );
-
-  useEffect(() => {
-    if (!isInitialized.current) {
-      bluetooth.service.addNotificationHandler(notificationHandler);
-      isInitialized.current = true;
+  .contents table {
+    width: 100%;
+    &,
+    & td {
+      border: 1px solid;
     }
-  }, [bluetooth, notificationHandler]);
 
-  const connectToDevice = useCallback(
-    async () => await bluetooth.service.connect(),
-    [bluetooth],
-  );
-
-  return (
-    <StyleContainer>
-      <div>
-        <button onClick={connectToDevice}>Connect</button>
-      </div>
-      <fieldset className="payloads">
-        <legend>Payloads</legend>
-        <pre>
-          {Array.from(payloads.keys())
-            .sort((a, b) => b - a)
-            .slice(0, 10)
-            .map((ts) => (
-              <Fragment key={ts}>
-                <>{ts}: </>
-                {/* <>{payloads.get(ts)}</> */}
-                <Hex value={payloads.get(ts)} />
-                {'\n'}
-              </Fragment>
-            ))}
-        </pre>
-      </fieldset>
-    </StyleContainer>
-  );
-};
+    pre {
+      padding: 0;
+      margin: 0;
+    }
+  }
+`;

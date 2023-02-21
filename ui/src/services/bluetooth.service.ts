@@ -1,8 +1,3 @@
-import {
-  DataSerializationFormat,
-  serializeBuffer,
-} from '../utils/serializeBuffer';
-
 export type NotificationEvent = Event & {
   target: BluetoothRemoteGATTCharacteristic;
   currentTarget: BluetoothRemoteGATTCharacteristic;
