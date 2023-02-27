@@ -1,10 +1,11 @@
 import { useCallback, useRef } from 'react';
 import styled from 'styled-components';
 import { useImmer } from 'use-immer';
+import { MfrData, readMfrData } from '../lib/readMfrData';
 import {
   AciNotificationHandler,
-  useAciNotifications,
-} from '../services/aciNotifications.service';
+  useAciData,
+} from '../services/aciData.service';
 import { AciNotification } from '../types/aciNotification';
 
 const bitValueTypes: Array<keyof AciNotification> = ['model', 'beeps'];
@@ -38,6 +39,8 @@ export const App = () => {
     AciNotification[]
   >([]);
 
+  const [mfrData, setMfrData] = useImmer<MfrData | null>(null);
+
   const handleAciNotification = useRef<AciNotificationHandler>(
     (notification) => {
       updateNotificationStore((store) => {
@@ -46,7 +49,20 @@ export const App = () => {
     },
   );
 
-  const aciNotifications = useAciNotifications(handleAciNotification.current);
+  const handleAciAdvert = useRef<EventListener>((advertEvent) => {
+    const mfrData = (advertEvent as unknown as Record<string, unknown>)
+      .manufacturerData as Set<unknown>;
+
+    if (mfrData.size > 0) {
+      const decoded = readMfrData(mfrData.values().next().value);
+      setMfrData(decoded);
+    }
+  });
+
+  const aciNotifications = useAciData(
+    handleAciAdvert.current,
+    handleAciNotification.current,
+  );
 
   const handleStartClick = useCallback(
     () => aciNotifications.start(),
@@ -66,6 +82,21 @@ export const App = () => {
         ) : (
           <button onClick={handleStopClick}>Stop notifications</button>
         )}
+      </div>
+
+      <div className="info">
+        <table>
+          <tbody>
+            <tr>
+              <td>Temp</td>
+              <td>{mfrData?.temp ?? 'unknown'} °C</td>
+            </tr>
+            <tr>
+              <td>RH</td>
+              <td>{mfrData?.humid ?? 'unknown'} %</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div className="contents">

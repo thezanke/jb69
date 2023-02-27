@@ -24,3 +24,4 @@ export const handleRangeError = <T, U = undefined>(
 };
 
 export const toUint8 = (input: number) => new Uint8Array([input])[0];
+export const toInt8 = (input: number) => new Int8Array([input])[0];

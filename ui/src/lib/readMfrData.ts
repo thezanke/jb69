@@ -2,7 +2,20 @@ import * as dataUtils from './dataUtils';
 
 const dec = new TextDecoder('utf-8');
 
-const readScanRecordData = (dv: DataView) => {
+export interface MfrData {
+  version: number;
+  type: number;
+  typeName: string;
+  canBeAdded: number;
+  isCelcius: boolean;
+  fanState: number;
+  tmpState: number;
+  humState: number;
+  temp: number;
+  humid: number;
+}
+
+export const readMfrData = (dv: DataView): MfrData => {
   const b = dv.getUint8(13);
 
   return {
@@ -12,7 +25,7 @@ const readScanRecordData = (dv: DataView) => {
       new Uint8Array(Array.from({ length: 5 }, (_v, i) => dv.getUint8(i + 6))),
     ),
     canBeAdded: dataUtils.getBit(b, 0),
-    isCelcius: !!dataUtils.getBit(b, 1),
+    isCelcius: !dataUtils.getBit(b, 1),
     fanState: dataUtils.getBits(b, 2, 2),
     tmpState: dataUtils.getBits(b, 4, 2),
     humState: dataUtils.getBits(b, 6, 2),
@@ -21,5 +34,3 @@ const readScanRecordData = (dv: DataView) => {
     // fan:
   };
 };
-
-export { readScanRecordData };

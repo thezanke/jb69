@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createDataViewFromHexString } from './createDataViewFromHexString';
-import { readScanRecordData } from './readScanRecordData';
+import { readMfrData } from './readMfrData';
 
 const dataView = Object.freeze(
   createDataViewFromHexString(
@@ -8,9 +8,9 @@ const dataView = Object.freeze(
   ),
 );
 
-describe('readScanRecordData', () => {
+describe('readMfrData', () => {
   test('returns expected result', () => {
-    expect(readScanRecordData(dataView)).toEqual({
+    expect(readMfrData(dataView)).toEqual({
       version: 3,
       type: 7,
       typeName: 'CT772',

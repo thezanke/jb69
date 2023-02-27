@@ -2,7 +2,7 @@ import { AciNotification } from '../types/aciNotification';
 import * as dataUtils from './dataUtils';
 import { DECREASE_TREND } from './deviceInfo';
 
-export const readNotificationsData = (data: DataView) => {
+export const readNotificationsDataOriginal = (data: DataView) => {
   let i: number;
   let b: number;
   let b2: number;
@@ -191,7 +191,7 @@ export const readNotificationsData = (data: DataView) => {
       }
 
       notification.beeps = trimmedData.getUint8(curr + 9);
-      notification.receivedAt = new Date();
+      notification.received = new Date();
 
       notifications.push(notification as AciNotification);
 

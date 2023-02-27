@@ -16,6 +16,7 @@ export class BluetoothService {
   #service?: BluetoothRemoteGATTService;
   #characteristic?: BluetoothRemoteGATTCharacteristic;
   #notificationEventHandlers: Set<NotificationEventHandler> = new Set();
+  #advertEventHandlers: Set<EventListener> = new Set();
 
   constructor() {
     this.bt = navigator.bluetooth;
@@ -28,24 +29,31 @@ export class BluetoothService {
   async connect(
     serviceUuid: string,
     charUuid: string,
+    mfrId: number,
     filters?: BluetoothLEScanFilter[],
   ) {
     const isBluetoothAvailable = await this.bt.getAvailability();
     if (!isBluetoothAvailable) throw new Error('bluetooth is not available');
 
-    const bluetoothRequest: RequestDeviceOptions = filters
-      ? {
-          filters,
-          optionalServices: [serviceUuid],
-        }
-      : {
-          acceptAllDevices: true,
-          optionalServices: [serviceUuid],
-        };
+    const bleRequestOpts: Record<string, any> = {
+      optionalServices: [serviceUuid],
+      optionalManufacturerData: [mfrId],
+    };
 
-    const device = await this.bt.requestDevice(bluetoothRequest);
+    if (filters) bleRequestOpts.filters = filters;
+
+    const device = await this.bt.requestDevice(
+      bleRequestOpts as RequestDeviceOptions,
+    );
 
     this.device = device;
+
+    this.device.addEventListener(
+      'advertisementreceived',
+      this.#handleAdvertEvent,
+    );
+
+    await device.watchAdvertisements();
 
     await backOff(
       async () => {
@@ -124,6 +132,20 @@ export class BluetoothService {
         console.trace(e);
       }
     });
+  };
+  #handleAdvertEvent = (ev: Event) => {
+    this.#advertEventHandlers.forEach(async (handler) => {
+      try {
+        await handler(ev);
+      } catch (e) {
+        console.warn('error in handler:');
+        console.trace(e);
+      }
+    });
+  };
+
+  addAdvertisementHandler = (handler: EventListener) => {
+    this.#advertEventHandlers.add(handler);
   };
 }
 
