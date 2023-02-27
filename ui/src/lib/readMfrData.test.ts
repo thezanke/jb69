@@ -15,7 +15,7 @@ describe('readMfrData', () => {
       type: 7,
       typeName: 'CT772',
       canBeAdded: 0,
-      isCelcius: true,
+      isCelcius: false,
       fanState: 0,
       tmpState: 2,
       humState: 2,
