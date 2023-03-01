@@ -1,111 +1,182 @@
-// import { useCallback, useEffect, useRef } from 'react';
-// import styled from 'styled-components';
-// import { useImmer } from 'use-immer';
-// import {
-//   NotificationEventHandler,
-//   useBluetoothService,
-// } from '../services/bluetooth.service';
-// import { DataPoint, DataTable } from './DataTable';
+import { useCallback, useRef } from 'react';
+import styled from 'styled-components';
+import { useImmer } from 'use-immer';
+import { MfrData, readMfrData } from '../lib/readMfrData';
+import {
+  AciNotificationHandler,
+  useAciData,
+} from '../services/aciData.service';
+import { AciNotification } from '../types/aciNotification';
 
-// export const App = () => {
-//   const bluetooth = useBluetoothService();
-//   const isInitialized = useRef(false);
-//   const [dataPoints, updateDataPoints] = useImmer<DataPoint[]>([]);
-//   // const [notifications, updateNotifications] = useImmer<Notification[]>([]);
+const bitValueTypes: Array<keyof AciNotification> = ['model', 'beeps'];
 
-//   const notificationsHandler = useRef<NotificationEventHandler | null>(null);
+const serializeNotificationValue = <K extends keyof AciNotification>(
+  key: K,
+  value: AciNotification[K],
+) => {
+  if (value === undefined) return '<undefined>';
+  if (key === 'received') return (value as Date).toUTCString();
+  if (bitValueTypes.includes(key)) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <span>{value.toString()}</span>
+        <pre style={{ display: 'block' }}>{value.toString(2)}</pre>
+      </div>
+    );
+  }
+  return value.toString();
+};
 
-//   useEffect(() => {
-//     if (!isInitialized.current) {
-//       notificationsHandler.current = (ev) => {
-//         const view = ev.target.value;
-//         if (!view) return;
+export const App = () => {
+  const [notificationStore, updateNotificationStore] = useImmer<
+    AciNotification[]
+  >([]);
 
-//         const timestamp = new Date();
+  const [mfrData, setMfrData] = useImmer<MfrData | null>(null);
 
-//         updateDataPoints((draft) => {
-//           draft.unshift({ timestamp, view });
-//         });
+  const handleAciNotification = useRef<AciNotificationHandler>(
+    (notification) => {
+      updateNotificationStore((store) => {
+        store.unshift(notification);
+      });
+    },
+  );
 
-//         // const notifications = readNotificationsData(view);
-//       };
+  const handleAciAdvert = useRef<EventListener>((advertEvent) => {
+    const mfrDataSet = (advertEvent as unknown as Record<string, unknown>)
+      .manufacturerData as Set<unknown>;
 
-//       bluetooth.service.addNotificationHandler(notificationsHandler.current);
-//       isInitialized.current = true;
-//     }
+    if (mfrDataSet.size > 0) {
+      const mfrData = mfrDataSet.values().next().value;
+      const decoded = readMfrData(mfrData);
+      console.log('data', mfrData);
+      console.log('decoded', decoded);
+      setMfrData(decoded);
+    }
+  });
 
-//     return () => {
-//       if (notificationsHandler.current) {
-//         bluetooth.service.removeNotificationHandler(
-//           notificationsHandler.current,
-//         );
+  const aciNotifications = useAciData(
+    handleAciAdvert.current,
+    handleAciNotification.current,
+  );
 
-//         notificationsHandler.current = null;
-//       }
+  const handleStartClick = useCallback(
+    () => aciNotifications.start(),
+    [aciNotifications],
+  );
 
-//       isInitialized.current = false;
-//     };
-//   }, [bluetooth, updateDataPoints]);
+  const handleStopClick = useCallback(
+    () => aciNotifications.stop(),
+    [aciNotifications],
+  );
 
-//   const connectToDevice = useCallback(
-//     async () => await bluetooth.service.connect(),
-//     [bluetooth],
-//   );
+  return (
+    <StyleContainer>
+      <div className="actionBar">
+        {!aciNotifications.isNotifying ? (
+          <button onClick={handleStartClick}>Start notifications</button>
+        ) : (
+          <button onClick={handleStopClick}>Stop notifications</button>
+        )}
+      </div>
 
-//   return (
-//     <StyleContainer>
-//       <div className="actionBar">
-//         <button onClick={connectToDevice}>Connect</button>
-//       </div>
-//       <div className="contents">
-//         <DataTable dataPoints={dataPoints} />
-//       </div>
-//     </StyleContainer>
-//   );
-// };
+      <div className="info">
+        <table>
+          <tbody>
+            <tr>
+              <td>Temp</td>
+              <td>{mfrData?.temp ?? 'unknown'} °C</td>
+            </tr>
+            <tr>
+              <td>RH</td>
+              <td>{mfrData?.humid ?? 'unknown'} %</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-// const StyleContainer = styled.div`
-//   padding: 1em;
-//   position: relative;
-//   display: flex;
-//   flex-direction: column;
-//   height: 100%;
+      <div className="contents">
+        {notificationStore.map((notification, i) => (
+          <table key={i}>
+            <tbody>
+              {Object.entries(notification).map(([key, value]) => (
+                <tr key={key}>
+                  <td>{key}</td>
+                  <td>
+                    {serializeNotificationValue(
+                      key as keyof AciNotification,
+                      value,
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ))}
+      </div>
+    </StyleContainer>
+  );
+};
 
-//   button {
-//     display: block;
-//     border-radius: 4px;
-//     background-color: transparent;
-//     box-shadow: none;
-//     border: 1px solid #ccc;
-//     padding: 0.5em 1.5em;
-//     color: #222;
-//     font-weight: 600;
-//     cursor: pointer;
+const StyleContainer = styled.div`
+  padding: 1em;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 
-//     &:hover {
-//       background-color: rgba(255, 255, 255, 0.5);
-//     }
-//   }
+  button {
+    display: block;
+    border-radius: 4px;
+    background-color: transparent;
+    box-shadow: none;
+    border: 1px solid #ccc;
+    padding: 0.5em 1.5em;
+    color: #222;
+    font-weight: 600;
+    cursor: pointer;
 
-//   .actionBar {
-//     padding: 0 0 1em;
-//   }
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.5);
+    }
+  }
 
-//   .contents {
-//   }
+  .actionBar {
+    padding: 0 0 1em;
+  }
 
-//   .contents table {
-//     width: 100%;
-//     &,
-//     & td {
-//       border: 1px solid;
-//     }
+  .contents {
+  }
 
-//     pre {
-//       padding: 0;
-//       margin: 0;
-//     }
-//   }
-// `;
+  .contents table {
+    display: inline-table;
+    border-collapse: collapse;
+    border-radius: 3px;
+    border-style: solid;
+    margin: 0.33em;
 
-export default 'unimplemented';
+    &,
+    & td {
+      border: 1px solid;
+      padding: 0 0.5rem;
+    }
+
+    & tr > td:first-child {
+      background-color: #ddd;
+      text-align: right;
+      padding: 0 0.25rem;
+    }
+
+    pre {
+      padding: 0;
+      margin: 0;
+    }
+  }
+`;

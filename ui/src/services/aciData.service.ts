@@ -1,11 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
+import { ACI_MFR_ID, NOTIF_SERVICE_UUID, NOTIF_CHAR_UUID } from '../constants';
 import { readNotificationsData } from '../lib/readNotificationsData';
 import { AciNotification } from '../types/aciNotification';
 import { bluetoothService, NotificationEvent } from './bluetooth.service';
-
-const SERVICE_UUID = '70d51000-2c7f-4e75-ae8a-d758951ce4e0';
-const CHAR_UUID = '70d51002-2c7f-4e75-ae8a-d758951ce4e0';
-const MFR_ID = 0x0902;
 
 export type AciNotificationHandler = (notificaton: AciNotification) => void;
 
@@ -21,18 +18,21 @@ export class AciDataService {
     bluetoothService.addNotificationHandler(this.#handleNotificationEvent);
     bluetoothService.addAdvertisementHandler(this.#handleAdvertEvent);
 
-    return bluetoothService.connect(SERVICE_UUID, CHAR_UUID, MFR_ID, [
-      { name: 'ACI-E' },
-    ]);
+    return bluetoothService.connect(
+      NOTIF_SERVICE_UUID,
+      NOTIF_CHAR_UUID,
+      ACI_MFR_ID,
+      [{ name: 'ACI-E' }],
+    );
   }
 
   async startNotifications() {
     if (!this.isConnected) await this.connect();
-    await bluetoothService.startNotifications();
+    // await bluetoothService.startNotifications();
   }
 
   async stopNotifications() {
-    await bluetoothService.stopNotifications();
+    // await bluetoothService.stopNotifications();
     if (this.isConnected) await bluetoothService.disconnect();
   }
 

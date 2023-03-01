@@ -59,9 +59,9 @@ export class BluetoothService {
       async () => {
         const gattServer = await device.gatt;
         if (!gattServer) throw new Error('gatt server missing');
-        await gattServer.connect();
-        if (!gattServer.connected) throw 'failed to connect';
-        this.#gattServer = gattServer;
+        // await gattServer.connect();
+        // if (!gattServer.connected) throw 'failed to connect';
+        // this.#gattServer = gattServer;
       },
       {
         numOfAttempts: 5,
@@ -78,12 +78,12 @@ export class BluetoothService {
     this.#service = service;
 
     const characteristic = await this.#service?.getCharacteristic(charUuid);
-    if (!characteristic) throw new Error('characterstic undefined');
+    // if (!characteristic) throw new Error('characterstic undefined');
 
-    characteristic.addEventListener(
-      CHAR_NOTIFY_EVENT,
-      this.#handleNotificationEvent,
-    );
+    // characteristic.addEventListener(
+    //   CHAR_NOTIFY_EVENT,
+    //   this.#handleNotificationEvent,
+    // );
 
     this.#characteristic = characteristic;
 

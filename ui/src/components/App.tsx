@@ -1,11 +1,10 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { useImmer } from 'use-immer';
+import { useImmer, useImmerReducer } from 'use-immer';
+import type { ImmerReducer } from 'use-immer';
+import { ACI_MFR_ID, NOTIF_SERVICE_UUID } from '../constants';
 import { MfrData, readMfrData } from '../lib/readMfrData';
-import {
-  AciNotificationHandler,
-  useAciData,
-} from '../services/aciData.service';
+import { simpleBluetoothService } from '../services/simpleBluetooth.service';
 import { AciNotification } from '../types/aciNotification';
 
 const bitValueTypes: Array<keyof AciNotification> = ['model', 'beeps'];
@@ -34,50 +33,64 @@ const serializeNotificationValue = <K extends keyof AciNotification>(
   return value.toString();
 };
 
+interface AppState {
+  temp: number;
+  humidity: number;
+  connected: boolean;
+  updated: Date | 'never';
+}
+
+const reducer: ImmerReducer<AppState, any> = (state, action) => {
+  if (action === 'connected') {
+    state.connected = true;
+    return state;
+  }
+
+  if (action.temp) state.temp = action.temp;
+  if (action.humid) state.humidity = action.humid;
+
+  state.updated = new Date();
+
+  return state;
+};
+
 export const App = () => {
-  const [notificationStore, updateNotificationStore] = useImmer<
-    AciNotification[]
-  >([]);
-
-  const [mfrData, setMfrData] = useImmer<MfrData | null>(null);
-
-  const handleAciNotification = useRef<AciNotificationHandler>(
-    (notification) => {
-      updateNotificationStore((store) => {
-        store.unshift(notification);
-      });
-    },
-  );
-
-  const handleAciAdvert = useRef<EventListener>((advertEvent) => {
-    const mfrData = (advertEvent as unknown as Record<string, unknown>)
-      .manufacturerData as Set<unknown>;
-
-    if (mfrData.size > 0) {
-      const decoded = readMfrData(mfrData.values().next().value);
-      setMfrData(decoded);
-    }
+  const [state, dispatch] = useImmerReducer<AppState, any>(reducer, {
+    temp: -Infinity,
+    humidity: -Infinity,
+    connected: false,
+    updated: 'never',
   });
 
-  const aciNotifications = useAciData(
-    handleAciAdvert.current,
-    handleAciNotification.current,
-  );
+  const initialized = useRef(false);
 
-  const handleStartClick = useCallback(
-    () => aciNotifications.start(),
-    [aciNotifications],
-  );
+  useEffect(() => {
+    if (initialized.current) return;
 
-  const handleStopClick = useCallback(
-    () => aciNotifications.stop(),
-    [aciNotifications],
-  );
+    console.log('adding event listener');
+    simpleBluetoothService.addEventListener('data', (ev) => {
+      console.log(ev.detail);
+      dispatch(ev.detail);
+    });
+
+    initialized.current = true;
+  }, [dispatch]);
+
+  const handleStartClick = useCallback(async () => {
+    await simpleBluetoothService.connect({
+      manufacturer: ACI_MFR_ID,
+      services: [NOTIF_SERVICE_UUID],
+    });
+
+    dispatch('connected');
+  }, [dispatch]);
+
+  const handleStopClick = useCallback(() => null, []);
 
   return (
     <StyleContainer>
       <div className="actionBar">
-        {!aciNotifications.isNotifying ? (
+        {!state.connected ? (
           <button onClick={handleStartClick}>Start notifications</button>
         ) : (
           <button onClick={handleStopClick}>Stop notifications</button>
@@ -88,35 +101,19 @@ export const App = () => {
         <table>
           <tbody>
             <tr>
-              <td>Temp</td>
-              <td>{mfrData?.temp ?? 'unknown'} °C</td>
+              <td>Temp:</td>
+              <td>{state.temp} °C</td>
             </tr>
             <tr>
-              <td>RH</td>
-              <td>{mfrData?.humid ?? 'unknown'} %</td>
+              <td>RH:</td>
+              <td>{state.humidity} %</td>
+            </tr>
+            <tr>
+              <td>Updated:</td>
+              <td>{String(state.updated)}</td>
             </tr>
           </tbody>
         </table>
-      </div>
-
-      <div className="contents">
-        {notificationStore.map((notification, i) => (
-          <table key={i}>
-            <tbody>
-              {Object.entries(notification).map(([key, value]) => (
-                <tr key={key}>
-                  <td>{key}</td>
-                  <td>
-                    {serializeNotificationValue(
-                      key as keyof AciNotification,
-                      value,
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ))}
       </div>
     </StyleContainer>
   );
@@ -149,10 +146,7 @@ const StyleContainer = styled.div`
     padding: 0 0 1em;
   }
 
-  .contents {
-  }
-
-  .contents table {
+  table {
     display: inline-table;
     border-collapse: collapse;
     border-radius: 3px;
